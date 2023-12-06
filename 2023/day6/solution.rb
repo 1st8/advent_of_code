@@ -13,17 +13,19 @@ end
 def part1(input)
   tuples = parse(input).transpose
   tuples.map do |time, distance|
-    time.times.select do |ms|
-      (time - ms) * ms > distance
-    end
-  end.map(&:length).reduce(&:*)
+    border = (find_border(distance, time) + 1).floor
+    time - (border * 2) + 1
+  end.reduce(&:*)
 end
 
 def part2(input)
   time, distance = parse(input).map { _1.map(&:to_s).join.to_i }
-  time.times.count do |ms|
-    (time - ms) * ms > distance
-  end
+  border = (find_border(distance, time) + 1).floor
+  time - (border * 2) + 1
+end
+
+def find_border(distance, time)
+  Rational(1, 2) * (time - Math.sqrt(-4 * distance + time**2))
 end
 
 class TestSolution < Test::Unit::TestCase
@@ -42,8 +44,15 @@ Distance:  9  40  200
   end
 end
 
+def measure(label)
+  require "benchmark"
+  res = nil
+  real = Benchmark.measure { res = yield }.real
+  puts "%s: %s (took: %.4fms)" % [label, res.inspect, real * 1000]
+end
+
 if Test::Unit::AutoRunner.run
   input = File.read("input.txt").strip
-  puts "Part1: #{part1(input)}"
-  puts "Part2: #{part2(input)}"
+  measure("Part1") { part1(input) }
+  measure("Part2") { part2(input) }
 end
