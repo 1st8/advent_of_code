@@ -2,17 +2,16 @@
 
 require "test/unit"
 
-# Returns [time, distance] tuples
 def parse(input)
   times, distances = input.strip.split("\n").map {
     _, *numbers = _1.split(/\s+/)
     numbers.map(&:to_i)
   }
-  [times, distances].transpose
+  [times, distances]
 end
 
 def part1(input)
-  tuples = parse(input)
+  tuples = parse(input).transpose
   tuples.map do |time, distance|
     time.times.select do |ms|
       (time - ms) * ms > distance
@@ -21,6 +20,10 @@ def part1(input)
 end
 
 def part2(input)
+  time, distance = parse(input).map { _1.map(&:to_s).join.to_i }
+  time.times.count do |ms|
+    (time - ms) * ms > distance
+  end
 end
 
 class TestSolution < Test::Unit::TestCase
@@ -34,9 +37,9 @@ Distance:  9  40  200
     assert_equal(288, part1(input))
   end
 
-  # def test_part2
-  #   assert_equal(46, part2(input))
-  # end
+  def test_part2
+    assert_equal(71503, part2(input))
+  end
 end
 
 if Test::Unit::AutoRunner.run
