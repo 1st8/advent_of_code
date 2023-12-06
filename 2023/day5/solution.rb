@@ -108,10 +108,69 @@ def compress(ranges)
     end
   end
   result << (start..(ranges.last.end))
-  # puts "compress"
-  # pp ranges
-  # pp result
   result
+end
+
+def part2_brute_ractors(input)
+  seed_ranges, stages = parse(input)
+  seed_ranges = seed_ranges.each_slice(2).map do |start, length|
+    start..(start + length - 1)
+  end
+
+  max_range_size = 250_000
+  seed_ranges = seed_ranges.sort_by(&:size).flat_map do |range|
+    ranges = []
+    while range.size > max_range_size
+      ranges << ((range.begin)..(range.begin + max_range_size))
+      range = (range.begin + max_range_size + 1)..(range.end)
+    end
+    ranges << range
+  end
+
+  require "etc"
+  ractors = Etc.nprocessors.times.map do
+    Ractor.new do
+      stages_in_ractor = receive
+      loop do
+        range_in_ractor = receive
+        break if range_in_ractor.nil?
+
+        result = range_in_ractor.map do |seed|
+          stages_in_ractor.reduce(seed) do |val, maps|
+            map = maps.find { |map| map[:src].include?(val) }
+            if map
+              val - map[:src].begin + map[:dest].begin
+            else
+              val
+            end
+          end
+        end
+        Ractor.yield result
+      end
+    end
+  end
+
+  ractors.each { _1.send(stages) }
+  puts "Ractors started: #{ractors.count}"
+
+  results = []
+  while seed_ranges.size > 0
+    working = ractors.filter_map do |r|
+      range = seed_ranges.shift
+      next nil if range.nil?
+      r.send(range)
+      r
+    end
+
+    while working.size > 0
+      r, obj = Ractor.select(*ractors)
+      working -= [r]
+      results << obj.min
+    end
+    puts [seed_ranges.size / 8].inspect
+  end
+  ractors.each { _1.send(nil) }
+  results.min
 end
 
 class TestSolution < Test::Unit::TestCase
@@ -251,10 +310,21 @@ humidity-to-location map:
   def test_part2
     assert_equal(46, part2(input))
   end
+
+  def test_part2_brute_ractors
+    assert_equal(46, part2_brute_ractors(input))
+  end
+end
+
+def measure(label)
+  require "benchmark"
+  res = nil
+  real = Benchmark.measure { res = yield }.real
+  puts "%s: %s (took: %.4fms)" % [label, res.inspect, real * 1000]
 end
 
 if Test::Unit::AutoRunner.run
   input = File.read("input.txt").strip
-  puts "Part1: #{part1(input)}"
-  puts "Part2: #{part2(input)}"
+  measure("Part1") { part1(input) }
+  measure("Part2") { part2(input) }
 end
